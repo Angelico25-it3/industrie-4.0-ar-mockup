@@ -14,11 +14,13 @@
       overflow: hidden;
     }
 
-    #overlay {
+    #overlay,
+    #camera-error {
       display: none;
       position: fixed;
       top: 50%;
       left: 50%;
+      transform: translate(-50%, -50%);
       z-index: 10;
       min-width: 220px;
       padding: 12px;
@@ -28,6 +30,13 @@
       backdrop-filter: blur(2px);
       font-size: 16px;
       color: #fff;
+    }
+
+    #camera-error {
+      z-index: 20;
+      max-width: 80vw;
+      text-align: center;
+      border-color: rgba(255, 90, 90, 0.6);
     }
 
     /* Kamera-/Canvas-Darstellung */
@@ -52,11 +61,32 @@
     <div id="marker-count">Times the Marker was found: 0</div>
   </div>
 
+  <div id="camera-error"></div>
+
   <script>
     const overlay = document.getElementById('overlay');
     const hiroMarker = document.getElementById('hiro-marker');
     const markerCount = document.getElementById('marker-count');
+    const cameraError = document.getElementById('camera-error');
     let markerFoundCount = 0;
+
+    async function checkCameraAccess() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        cameraError.textContent = 'Kamera-API wird von diesem Browser/Kontext nicht unterstützt (evtl. fehlt HTTPS).';
+        cameraError.style.display = 'block';
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (err) {
+        console.error('Camera access error:', err);
+        cameraError.textContent = `Kein Zugriff auf die Kamera möglich: ${err.message}. Bitte Berechtigung erteilen und Seite neu laden.`;
+        cameraError.style.display = 'block';
+      }
+    }
+
+    checkCameraAccess();
 
     hiroMarker.addEventListener('markerFound', () => {
       console.debug('Marker found');
