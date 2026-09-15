@@ -7,38 +7,129 @@
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.min.js"></script>
   <style>
-    :root { color-scheme: dark; }
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      overflow: hidden;
+    :root { 
+      color-scheme: dark; 
+      --bg-card: rgba(18, 24, 38, 0.85);
+      --border-card: rgba(255, 255, 255, 0.15);
+      --success-green: #10b981;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
     }
 
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      color: var(--text-main);
+    }
+
+    /* Status-Header (Immer sichtbar) */
+    #status-bar {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      backdrop-filter: blur(8px);
+      padding: 8px 16px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444; /* Rot, wenn kein Marker da ist */
+    }
+
+    .status-dot.active {
+      background: var(--success-green);
+      box-shadow: 0 0 8px var(--success-green);
+    }
+
+    /* Haupt-Dashboard (Sichtbar bei Marker-Erkennung) */
     #overlay {
       display: none;
       position: fixed;
       top: 50%;
       left: 50%;
+      transform: translate(-50%, -50%);
       z-index: 10;
-      min-width: 220px;
-      padding: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.45);
+      width: 280px;
+      padding: 20px;
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .card-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .metric-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .metric-card {
+      background: rgba(255, 255, 255, 0.05);
       border-radius: 8px;
-      background: rgba(0, 0, 0, 0.55);
-      backdrop-filter: blur(2px);
-      font-size: 16px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .metric-label {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .metric-value {
+      font-size: 18px;
+      font-weight: bold;
       color: #fff;
+    }
+
+    .status-badge {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success-green);
+      font-weight: 600;
     }
 
     /* Kamera-/Canvas-Darstellung */
     video, canvas {
       width: 100vw !important;
       height: 100vh !important;
-      object-fit: contain !important; /* weniger Zoom-Eindruck */
+      object-fit: contain !important;
     }
   </style>
 </head>
 <body>
+
+  <!-- Dauerhafte Live-Anzeige oben -->
+  <div id="status-bar">
+    <div id="status-dot" class="status-dot"></div>
+    <span id="status-text">Suche Hiro-Marker...</span>
+  </div>
+
   <a-scene
     vr-mode-ui="enabled: false"
     renderer="logarithmicDepthBuffer: true"
@@ -48,29 +139,56 @@
     <a-entity camera></a-entity>
   </a-scene>
 
+  <!-- Übersichtliches Hauptpanel -->
   <div id="overlay">
-    <div id="marker-count">The Marker was not yet found</div>
+    <div class="card-title">Maschinen-Status</div>
+    
+    <div class="metric-group">
+      <div class="metric-card">
+        <span class="metric-label">System</span>
+        <span class="status-badge">Betriebsbereit</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="metric-label">Erkennungen</span>
+        <span id="marker-count" class="metric-value">0</span>
+      </div>
+    </div>
   </div>
 
   <script>
     const overlay = document.getElementById('overlay');
     const hiroMarker = document.getElementById('hiro-marker');
     const markerCount = document.getElementById('marker-count');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
     let markerFoundCount = 0;
 
     hiroMarker.addEventListener('markerFound', () => {
       console.debug('Marker found');
       markerFoundCount += 1;
-      markerCount.textContent = `The Marker was found the ${markerFoundCount} time`;
+      markerCount.textContent = markerFoundCount;
+      
+      // Status-Bar aktualisieren
+      statusDot.classList.add('active');
+      statusText.textContent = 'Marker erkannt';
+
+      // Dashboard anzeigen
       overlay.style.display = 'block';
     });
 
     hiroMarker.addEventListener('markerLost', () => {
       console.debug('Marker lost');
+      
+      // Status-Bar aktualisieren
+      statusDot.classList.remove('active');
+      statusText.textContent = 'Suche Hiro-Marker...';
+
+      // Dashboard ausblenden
       overlay.style.display = 'none';
     });
 
-    /* global functions for debugging */
+    /* Global functions for debugging */
     window.fireEventMarkerFound = () => {
       const event = new CustomEvent('markerFound');
       hiroMarker.dispatchEvent(event);
